@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from backend.rutas import usuarios, visitas, marcadores
+from rutas import usuarios, visitas, marcadores
 from auth import router as auth_router
 from fastapi import Request
 
