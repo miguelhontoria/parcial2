@@ -1,7 +1,8 @@
 fastapi
 uvicorn
+motor
 pymongo
 python-dotenv
-motor
-httpx
 cloudinary
+httpx
+python-multipart
