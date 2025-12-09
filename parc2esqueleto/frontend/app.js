@@ -1,6 +1,11 @@
 const CLOUD_NAME = "dundnn1ge";
 const UPLOAD_PRESET = "preset_mapa";
 
+// Detecta si estamos en Render o en local
+const API_BASE = window.location.hostname.includes("onrender.com")
+  ? "https://parcial2-prueba.onrender.com"
+  : "http://127.0.0.1:8000";
+
 const map = L.map("map").setView([40.4168, -3.7038], 5);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap contributors",
@@ -14,7 +19,7 @@ function clearMarkers() {
 }
 
 async function obtenerCorreoSesion() {
-  const res = await fetch("http://127.0.0.1:8000/auth/sesion", {
+  const res = await fetch(`${API_BASE}/auth/sesion`, {
     credentials: "include",
   });
   const data = await res.json();
@@ -59,7 +64,7 @@ async function initUI() {
   h2.textContent = `Mapa de: ${correo}`;
   document.body.insertBefore(h2, document.getElementById("map"));
 
-  const res = await fetch(`http://127.0.0.1:8000/usuarios/${correo}`);
+  const res = await fetch(`${API_BASE}/usuarios/${correo}`);
   const usuario = await res.json();
   if (usuario.marcadores) {
     usuario.marcadores.forEach(({ ciudad, latitud, longitud, imagenURI }) => {
@@ -77,11 +82,11 @@ async function initUI() {
 window.addEventListener("DOMContentLoaded", initUI);
 
 document.getElementById("loginBtn").addEventListener("click", () => {
-  window.location.href = "http://127.0.0.1:8000/auth/google/login";
+  window.location.href = `${API_BASE}/auth/google/login`;
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
-  await fetch("http://127.0.0.1:8000/auth/logout", {
+  await fetch(`${API_BASE}/auth/logout`, {
     method: "POST",
     credentials: "include",
   });
@@ -144,14 +149,11 @@ document
     const longitud = parseFloat(geoData[0].lon);
 
     const marcador = { ciudad, latitud, longitud, imagenURI };
-    const res = await fetch(
-      `http://127.0.0.1:8000/usuarios/${correo}/marcadores`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(marcador),
-      }
-    );
+    const res = await fetch(`${API_BASE}/usuarios/${correo}/marcadores`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(marcador),
+    });
 
     const data = await res.json();
     if (!res.ok) {
@@ -170,10 +172,9 @@ document.getElementById("visitBtn").addEventListener("click", async () => {
     return;
   }
 
-  const res = await fetch(
-    `http://127.0.0.1:8000/usuarios/${visitEmail}/visitar`,
-    { credentials: "include" }
-  );
+  const res = await fetch(`${API_BASE}/usuarios/${visitEmail}/visitar`, {
+    credentials: "include",
+  });
   const data = await res.json();
 
   if (data.error) {
