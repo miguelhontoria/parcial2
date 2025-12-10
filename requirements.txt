@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+motor
+pymongo
+python-dotenv
+cloudinary
+httpx
+python-multipart
