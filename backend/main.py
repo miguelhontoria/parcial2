@@ -37,11 +37,6 @@ app.mount("/frontend", StaticFiles(directory=frontend_path), name="frontend")
 def home():
     return FileResponse(os.path.join(frontend_path, "index.html"))
 
-app.include_router(usuarios.router)
-app.include_router(visitas.router)
-app.include_router(marcadores.router)
-app.include_router(auth_router)
-
 @app.get("/auth/sesion")
 def obtener_sesion(request: Request):
     correo = request.cookies.get("session_email")
