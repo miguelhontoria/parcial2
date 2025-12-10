@@ -6,3 +6,4 @@ python-dotenv
 cloudinary
 httpx
 python-multipart
+uvicorn[standard]
