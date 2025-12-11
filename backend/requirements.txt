@@ -4,13 +4,9 @@ motor
 pymongo
 python-dotenv
 cloudinary
-<<<<<<< HEAD
+httpx
+python-multipart
+email-validator
+aiohttp
 requests
 authlib
-python-multipart
-httpx
-=======
-httpx
-python-multipart
-uvicorn[standard]
->>>>>>> parent of 1468199 (cambioDesplieguePrueba)
