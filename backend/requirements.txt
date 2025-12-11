@@ -1,11 +1,16 @@
 fastapi
 uvicorn
 motor
+pymongo
 python-dotenv
-email-validator
-aiohttp
 cloudinary
+<<<<<<< HEAD
 requests
 authlib
 python-multipart
 httpx
+=======
+httpx
+python-multipart
+uvicorn[standard]
+>>>>>>> parent of 1468199 (cambioDesplieguePrueba)

@@ -1,137 +1,197 @@
-let map;
-let currentUserEmail = null;
+const CLOUD_NAME = "dundnn1ge";
+const UPLOAD_PRESET = "preset_mapa";
+const API_URL = "https://parcial2-82eb.onrender.com";
+
+const map = L.map("map").setView([40.4168, -3.7038], 5);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap contributors",
+}).addTo(map);
+
 let currentMarkers = [];
 
-// Inicializar mapa
-function initMap() {
-  map = L.map("map").setView([40.4168, -3.7038], 5);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap contributors",
-  }).addTo(map);
-}
-
-// Limpiar marcadores previos
 function clearMarkers() {
   currentMarkers.forEach((m) => map.removeLayer(m));
   currentMarkers = [];
 }
 
-// Mostrar u ocultar elementos según sesión
-function actualizarUI() {
+async function obtenerCorreoSesion() {
+  const res = await fetch(`${API_URL}/auth/sesion`, {
+    credentials: "include",
+  });
+  const data = await res.json();
+  return data.correo;
+}
+
+// Inicializa la UI según si hay sesión o no
+async function initUI() {
+  const correo = await obtenerCorreoSesion();
   const loginBtn = document.getElementById("loginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
   const marcadorForm = document.getElementById("marcadorForm");
-  const mapaTitulo = document.getElementById("mapTitle");
 
-  if (currentUserEmail) {
-    loginBtn.style.display = "none";
-    logoutBtn.style.display = "inline-block";
-    marcadorForm.style.display = "flex";
-    mapaTitulo.textContent = `Mapa de: ${currentUserEmail}`;
-    mapaTitulo.style.display = "block";
-  } else {
+  clearMarkers();
+  const titulo = document.getElementById("correoTitulo");
+  if (titulo) titulo.remove();
+
+  // Elimina avisos previos
+  const oldAvisos = document.querySelectorAll("p[data-aviso='login']");
+  oldAvisos.forEach((p) => p.remove());
+
+  if (!correo) {
+    // Estado sin sesión
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
     marcadorForm.style.display = "none";
-    mapaTitulo.style.display = "none";
-  }
-}
 
-// Renderizar marcadores
-function renderMarkers(marcadores) {
-  clearMarkers();
-  marcadores.forEach((m) => {
-    const lat = parseFloat(m.latitud);
-    const lon = parseFloat(m.longitud);
-    if (!isNaN(lat) && !isNaN(lon)) {
-      const marker = L.marker([lat, lon]).addTo(map);
-      let popupContent = `<b>${m.ciudad}</b>`;
-      if (m.url_imagen) {
-        popupContent += `<br><img src="${m.url_imagen}" width="100">`;
-      }
-      marker.bindPopup(popupContent);
+    const aviso = document.createElement("p");
+    aviso.textContent = "Debes iniciar sesión para añadir marcadores.";
+    aviso.setAttribute("data-aviso", "login");
+    document.body.insertBefore(aviso, document.getElementById("map"));
+    return;
+  }
+
+  // Estado con sesión
+  loginBtn.style.display = "none";
+  logoutBtn.style.display = "inline-block";
+  marcadorForm.style.display = "block";
+
+  const h2 = document.createElement("h2");
+  h2.id = "correoTitulo";
+  h2.textContent = `Mapa de: ${correo}`;
+  document.body.insertBefore(h2, document.getElementById("map"));
+
+  const res = await fetch(`${API_URL}/usuarios/${correo}`);
+  const usuario = await res.json();
+  if (usuario.marcadores) {
+    usuario.marcadores.forEach(({ ciudad, latitud, longitud, imagenURI }) => {
+      const marker = L.marker([latitud, longitud]).addTo(map);
+      marker.bindPopup(
+        `<b>${ciudad}</b><br>${
+          imagenURI ? `<img src="${imagenURI}" width="100">` : ""
+        }`
+      );
       currentMarkers.push(marker);
-    }
-  });
-}
-
-// Verificar sesión y cargar marcadores
-async function checkSession() {
-  const resp = await fetch("/auth/sesion");
-  if (resp.ok) {
-    const data = await resp.json();
-    if (data.correo) {
-      currentUserEmail = data.correo;
-      actualizarUI();
-      const res = await fetch(`/usuarios/${currentUserEmail}/marcadores`);
-      if (res.ok) {
-        const datos = await res.json();
-        renderMarkers(datos.marcadores);
-      }
-    } else {
-      actualizarUI();
-    }
+    });
   }
 }
 
-// Login
+window.addEventListener("DOMContentLoaded", initUI);
+
 document.getElementById("loginBtn").addEventListener("click", () => {
-  window.location.href = "/auth/google/login";
+  window.location.href = `${API_URL}/auth/google/login`;
 });
 
-// Logout
 document.getElementById("logoutBtn").addEventListener("click", async () => {
-  const resp = await fetch("/auth/logout", { method: "POST" });
-  if (resp.ok) {
-    currentUserEmail = null;
-    actualizarUI();
-    clearMarkers();
-  }
+  await fetch(`${API_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  alert("Sesión cerrada");
+
+  // Reinicializa la UI sin necesidad de F5
+  await initUI();
 });
 
-// Añadir marcador
 document
   .getElementById("marcadorForm")
   .addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!currentUserEmail) return;
 
-    const ciudad = document.getElementById("ciudad").value;
+    const ciudad = document.getElementById("ciudad").value.trim();
     const imagen = document.getElementById("imagen").files[0];
+    const correo = await obtenerCorreoSesion();
+
+    if (!correo || !ciudad || !imagen) {
+      alert("Faltan datos o no hay sesión activa.");
+      return;
+    }
 
     const formData = new FormData();
-    formData.append("ciudad", ciudad);
-    if (imagen) formData.append("imagen", imagen);
+    formData.append("file", imagen);
+    formData.append("upload_preset", UPLOAD_PRESET);
 
-    const resp = await fetch(`/usuarios/${currentUserEmail}/marcadores`, {
+    const cloudinaryURL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+    const cloudRes = await fetch(cloudinaryURL, {
       method: "POST",
       body: formData,
     });
+    const cloudData = await cloudRes.json();
+    console.log("Cloudinary response:", cloudData);
 
-    if (resp.ok) {
-      const res = await fetch(`/usuarios/${currentUserEmail}/marcadores`);
-      if (res.ok) {
-        const datos = await res.json();
-        renderMarkers(datos.marcadores);
-      }
-    } else {
-      alert("Error al añadir marcador");
+    if (!cloudRes.ok || !cloudData.secure_url) {
+      alert("No se pudo subir la imagen. Revisa cloud_name y upload_preset.");
+      return;
     }
+
+    const imagenURI = cloudData.secure_url;
+
+    const geoRes = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        ciudad
+      )}`,
+      {
+        headers: {
+          "User-Agent": "MiMapa/1.0 (mailto:miguelhontoria03@gmail.com)",
+        },
+      }
+    );
+    const geoData = await geoRes.json();
+    if (!geoData[0]) {
+      alert("No se pudo geolocalizar la ciudad.");
+      return;
+    }
+    const latitud = parseFloat(geoData[0].lat);
+    const longitud = parseFloat(geoData[0].lon);
+
+    const marcador = { ciudad, latitud, longitud, imagenURI };
+    const res = await fetch(`${API_URL}/usuarios/${correo}/marcadores`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(marcador),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert("No se pudo guardar el marcador.");
+      return;
+    }
+
+    alert("Marcador añadido correctamente.");
+    window.location.reload();
   });
 
-// Visitar otro mapa
 document.getElementById("visitBtn").addEventListener("click", async () => {
-  const email = document.getElementById("visitEmail").value;
-  if (!email) return;
-  const resp = await fetch(`/usuarios/${email}/marcadores`);
-  if (resp.ok) {
-    const data = await resp.json();
-    renderMarkers(data.marcadores);
-    document.getElementById("mapTitle").textContent = `Mapa de: ${email}`;
-    document.getElementById("mapTitle").style.display = "block";
+  const visitEmail = document.getElementById("visitEmail").value.trim();
+  if (!visitEmail) {
+    alert("Introduce un email para visitar su mapa.");
+    return;
+  }
+
+  const res = await fetch(`${API_URL}/usuarios/${visitEmail}/visitar`, {
+    credentials: "include",
+  });
+  const data = await res.json();
+
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  clearMarkers();
+
+  if (data.marcadores && data.marcadores.length > 0) {
+    data.marcadores.forEach(({ ciudad, latitud, longitud, imagenURI }) => {
+      const marker = L.marker([latitud, longitud]).addTo(map);
+      marker.bindPopup(
+        `<b>${ciudad}</b><br>${
+          imagenURI ? `<img src="${imagenURI}" width="100">` : ""
+        }`
+      );
+      currentMarkers.push(marker);
+    });
+
+    const first = data.marcadores[0];
+    map.setView([first.latitud, first.longitud], 8);
   }
 });
-
-// Inicializar
-initMap();
-checkSession();

@@ -2,7 +2,7 @@ import os, urllib.parse, httpx
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
-from db import coleccion_usuarios
+from db.conexion import coleccion_usuarios
 
 load_dotenv()
 router = APIRouter()
