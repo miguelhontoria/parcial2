@@ -1,9 +1,9 @@
 fastapi
 uvicorn
 motor
-pymongo
 python-dotenv
+email-validator
+aiohttp
 cloudinary
-httpx
-python-multipart
-uvicorn[standard]
+requests
+authlib
