@@ -8,3 +8,4 @@ cloudinary
 requests
 authlib
 python-multipart
+httpx
