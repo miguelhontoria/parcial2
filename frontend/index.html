@@ -3,26 +3,47 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>MiMapa</title>
+    <title>ReViews</title>
     <link rel="stylesheet" href="/frontend/styles.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 
 <body>
-    <h1>MiMapa</h1>
+    <h1>ReViews</h1>
 
-    <button id="loginBtn">Iniciar sesión con Google</button>
-    <button id="logoutBtn">Cerrar sesión</button>
+    <div class="auth-buttons">
+        <button id="loginBtn">Iniciar sesión con Google</button>
+        <button id="logoutBtn">Cerrar sesión</button>
+    </div>
 
-    <form id="marcadorForm">
-        <input type="text" id="ciudad" placeholder="Ciudad" required>
+    <p id="mensajeLogin" style="text-align:center; margin-top:10px;"></p>
+
+    <form id="reseñaForm">
+        <input type="text" id="establecimiento" placeholder="Nombre del establecimiento" required>
+        <input type="text" id="direccion" placeholder="Dirección postal" required>
+        <input type="number" id="valoracion" placeholder="Valoración (0-5)" min="0" max="5" required>
         <input type="file" id="imagen" accept="image/*">
-        <button type="submit">Añadir marcador</button>
-        <input type="text" id="visitEmail" placeholder="Visitar mapa de usuario">
-        <button type="button" id="visitBtn">Visitar</button>
+        <button type="submit">Añadir reseña</button>
     </form>
 
-    <div id="map" style="height:500px;"></div>
+    <div id="tablaReseñas" style="display:none;">
+    <h2>Listado de reseñas</h2>
+        <table id="reseñasTable">
+            <thead>
+                <tr>
+                    <th>Establecimiento</th>
+                    <th>Dirección</th>
+                    <th>Latitud</th>
+                    <th>Longitud</th>
+                    <th>Valoración</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="map" style="display:none;"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="/frontend/app.js"></script>

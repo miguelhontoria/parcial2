@@ -1,13 +1,12 @@
 from pydantic import BaseModel
-from typing import List, Optional
-
-class Marcador(BaseModel):
-    ciudad: str
-    latitud: float
-    longitud: float
-    imagenURI: Optional[str] = None
+from typing import List
+from datetime import datetime
+from modelos.reseña import Reseña
 
 class Usuario(BaseModel):
     correo: str
+    nombre: str
     token_oauth: str
-    marcadores: List[Marcador] = []
+    token_emision: datetime
+    token_caducidad: datetime
+    reseñas: List[Reseña] = []

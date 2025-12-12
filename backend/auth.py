@@ -1,8 +1,9 @@
 import os, urllib.parse, httpx
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request, Response, HTTPException
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from db.conexion import coleccion_usuarios
+from datetime import datetime, timedelta
 
 load_dotenv()
 router = APIRouter()
@@ -14,6 +15,12 @@ OAUTH_SCOPE = "openid email profile"
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+def require_auth(request: Request):
+    correo = request.cookies.get("session_email")
+    if not correo:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    return correo
 
 @router.get("/auth/sesion")
 def obtener_sesion(request: Request):
@@ -54,6 +61,7 @@ async def google_callback(request: Request):
         )
         token_data = token_res.json()
         access_token = token_data.get("access_token")
+        expires_in = token_data.get("expires_in")
 
         if not access_token:
             return {"error": "No se pudo obtener el token de acceso"}
@@ -64,21 +72,33 @@ async def google_callback(request: Request):
         )
         user_data = user_res.json()
         correo = user_data.get("email")
+        nombre = user_data.get("name")
 
     if not correo:
         return {"error": "No se pudo obtener el correo del usuario"}
+
+    token_emision = datetime.utcnow()
+    token_caducidad = token_emision + timedelta(seconds=expires_in or 3600)
 
     existing = await coleccion_usuarios.find_one({"correo": correo})
     if not existing:
         await coleccion_usuarios.insert_one({
             "correo": correo,
-            "marcadores": [],
-            "token_oauth": access_token
+            "nombre": nombre,
+            "reseñas": [],
+            "token_oauth": access_token,
+            "token_emision": token_emision,
+            "token_caducidad": token_caducidad
         })
     else:
         await coleccion_usuarios.update_one(
             {"correo": correo},
-            {"$set": {"token_oauth": access_token}}
+            {"$set": {
+                "nombre": nombre,
+                "token_oauth": access_token,
+                "token_emision": token_emision,
+                "token_caducidad": token_caducidad
+            }}
         )
 
     response = RedirectResponse(url="/")
@@ -90,7 +110,6 @@ async def google_callback(request: Request):
         samesite="lax"
     )
     return response
-
 
 @router.post("/auth/logout")
 def cerrar_sesion(response: Response):

@@ -8,6 +8,6 @@ load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
 cliente = AsyncIOMotorClient(MONGO_URI)
 bd = cliente.get_default_database()  
-
+ 
 coleccion_usuarios = bd["usuarios"]
-coleccion_visitas = bd["visitas"]
+coleccion_reseñas = bd["reseñas"]

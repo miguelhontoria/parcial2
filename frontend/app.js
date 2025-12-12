@@ -1,6 +1,6 @@
+const API_URL = "https://parcial2-82eb.onrender.com";
 const CLOUD_NAME = "dundnn1ge";
 const UPLOAD_PRESET = "preset_mapa";
-const API_URL = "https://parcial2-82eb.onrender.com";
 
 const map = L.map("map").setView([40.4168, -3.7038], 5);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -22,57 +22,117 @@ async function obtenerCorreoSesion() {
   return data.correo;
 }
 
-// Inicializa la UI según si hay sesión o no
+async function cargarReseñas() {
+  const res = await fetch(`${API_URL}/reseñas`, {
+    credentials: "include",
+  });
+  const data = await res.json();
+  const tbody = document.querySelector("#reseñasTable tbody");
+  tbody.innerHTML = "";
+  clearMarkers();
+
+  data.reseñas.forEach((r) => {
+    const tr = document.createElement("tr");
+
+    const direccionLink = `<a href="#" class="direccion-link" data-direccion="${r.direccion}">${r.direccion}</a>`;
+
+    tr.innerHTML = `
+      <td>${r.establecimiento}</td>
+      <td>${direccionLink}</td>
+      <td>${r.latitud}</td>
+      <td>${r.longitud}</td>
+      <td>${r.valoracion}</td>
+    `;
+    tbody.appendChild(tr);
+
+    const marker = L.marker([r.latitud, r.longitud]).addTo(map);
+    marker.bindPopup(
+      `<b>${r.establecimiento}</b><br>${r.direccion}<br>Valoración: ${r.valoracion}`
+    );
+    currentMarkers.push(marker);
+  });
+
+  document.querySelectorAll(".direccion-link").forEach((link) => {
+    link.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const direccion = e.target.getAttribute("data-direccion");
+      const detalleRes = await fetch(
+        `${API_URL}/reseñas/${encodeURIComponent(direccion)}`,
+        { credentials: "include" }
+      );
+      const detalle = await detalleRes.json();
+
+      if (!detalleRes.ok) {
+        alert("No se pudo obtener el detalle de la reseña.");
+        return;
+      }
+
+      const imagenesHTML =
+        Array.isArray(detalle.imagenes) && detalle.imagenes.length > 0
+          ? detalle.imagenes
+              .map(
+                (url) =>
+                  `<img src="${url}" width="120" style="margin:5px; border-radius:4px;">`
+              )
+              .join("")
+          : "Sin imágenes";
+
+      const popupHTML = `
+        <strong>Establecimiento:</strong> ${detalle.establecimiento}<br>
+        <strong>Dirección:</strong> ${detalle.direccion}<br>
+        <strong>Autor:</strong> ${detalle.nombre_autor} (${detalle.correo_autor})<br>
+        <strong>Token OAuth:</strong> ${detalle.token_oauth}<br>
+        <strong>Emisión:</strong> ${detalle.token_emision}<br>
+        <strong>Caducidad:</strong> ${detalle.token_caducidad}<br>
+        <strong>Imágenes:</strong><br>${imagenesHTML}
+      `;
+
+      const popupWindow = window.open(
+        "",
+        "Detalle Reseña",
+        "width=600,height=700"
+      );
+      popupWindow.document.write(
+        `<html><head><title>Detalle de reseña</title></head><body style="font-family:sans-serif;padding:20px;">${popupHTML}</body></html>`
+      );
+    });
+  });
+}
+
 async function initUI() {
   const correo = await obtenerCorreoSesion();
+
   const loginBtn = document.getElementById("loginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
-  const marcadorForm = document.getElementById("marcadorForm");
+  const reseñaForm = document.getElementById("reseñaForm");
+  const tablaReseñas = document.getElementById("tablaReseñas");
+  const mapDiv = document.getElementById("map");
+  const mensajeLogin = document.getElementById("mensajeLogin");
 
-  clearMarkers();
-  const titulo = document.getElementById("correoTitulo");
-  if (titulo) titulo.remove();
-
-  // Elimina avisos previos
-  const oldAvisos = document.querySelectorAll("p[data-aviso='login']");
-  oldAvisos.forEach((p) => p.remove());
+  reseñaForm.style.display = "none";
+  tablaReseñas.style.display = "none";
+  mapDiv.style.display = "none";
+  mensajeLogin.textContent = "";
 
   if (!correo) {
-    // Estado sin sesión
     loginBtn.style.display = "inline-block";
     logoutBtn.style.display = "none";
-    marcadorForm.style.display = "none";
-
-    const aviso = document.createElement("p");
-    aviso.textContent = "Debes iniciar sesión para añadir marcadores.";
-    aviso.setAttribute("data-aviso", "login");
-    document.body.insertBefore(aviso, document.getElementById("map"));
+    reseñaForm.style.display = "none";
+    mensajeLogin.textContent = "Debes iniciar sesión para ver las reseñas.";
     return;
   }
 
-  // Estado con sesión
   loginBtn.style.display = "none";
   logoutBtn.style.display = "inline-block";
-  marcadorForm.style.display = "block";
+  reseñaForm.style.display = "flex";
+  tablaReseñas.style.display = "block";
+  mapDiv.style.display = "block";
+  mensajeLogin.textContent = `Usuario: ${correo}`;
 
-  const h2 = document.createElement("h2");
-  h2.id = "correoTitulo";
-  h2.textContent = `Mapa de: ${correo}`;
-  document.body.insertBefore(h2, document.getElementById("map"));
-
-  const res = await fetch(`${API_URL}/usuarios/${correo}`);
-  const usuario = await res.json();
-  if (usuario.marcadores) {
-    usuario.marcadores.forEach(({ ciudad, latitud, longitud, imagenURI }) => {
-      const marker = L.marker([latitud, longitud]).addTo(map);
-      marker.bindPopup(
-        `<b>${ciudad}</b><br>${
-          imagenURI ? `<img src="${imagenURI}" width="100">` : ""
-        }`
-      );
-      currentMarkers.push(marker);
-    });
-  }
+  await cargarReseñas();
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 300);
 }
 
 window.addEventListener("DOMContentLoaded", initUI);
@@ -88,25 +148,27 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   });
 
   alert("Sesión cerrada");
-
-  // Reinicializa la UI sin necesidad de F5
   await initUI();
 });
 
-document
-  .getElementById("marcadorForm")
-  .addEventListener("submit", async (e) => {
-    e.preventDefault();
+document.getElementById("reseñaForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-    const ciudad = document.getElementById("ciudad").value.trim();
-    const imagen = document.getElementById("imagen").files[0];
-    const correo = await obtenerCorreoSesion();
+  const establecimiento = document
+    .getElementById("establecimiento")
+    .value.trim();
+  const direccion = document.getElementById("direccion").value.trim();
+  const valoracion = document.getElementById("valoracion").value.trim();
+  const imagen = document.getElementById("imagen").files[0];
+  const correo = await obtenerCorreoSesion();
 
-    if (!correo || !ciudad || !imagen) {
-      alert("Faltan datos o no hay sesión activa.");
-      return;
-    }
+  if (!correo || !establecimiento || !direccion || !valoracion) {
+    alert("Faltan datos o no hay sesión activa.");
+    return;
+  }
 
+  let imagenURI = null;
+  if (imagen) {
     const formData = new FormData();
     formData.append("file", imagen);
     formData.append("upload_preset", UPLOAD_PRESET);
@@ -117,81 +179,32 @@ document
       body: formData,
     });
     const cloudData = await cloudRes.json();
-    console.log("Cloudinary response:", cloudData);
 
     if (!cloudRes.ok || !cloudData.secure_url) {
-      alert("No se pudo subir la imagen. Revisa cloud_name y upload_preset.");
+      alert("No se pudo subir la imagen.");
       return;
     }
-
-    const imagenURI = cloudData.secure_url;
-
-    const geoRes = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        ciudad
-      )}`,
-      {
-        headers: {
-          "User-Agent": "MiMapa/1.0 (mailto:miguelhontoria03@gmail.com)",
-        },
-      }
-    );
-    const geoData = await geoRes.json();
-    if (!geoData[0]) {
-      alert("No se pudo geolocalizar la ciudad.");
-      return;
-    }
-    const latitud = parseFloat(geoData[0].lat);
-    const longitud = parseFloat(geoData[0].lon);
-
-    const marcador = { ciudad, latitud, longitud, imagenURI };
-    const res = await fetch(`${API_URL}/usuarios/${correo}/marcadores`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(marcador),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      alert("No se pudo guardar el marcador.");
-      return;
-    }
-
-    alert("Marcador añadido correctamente.");
-    window.location.reload();
-  });
-
-document.getElementById("visitBtn").addEventListener("click", async () => {
-  const visitEmail = document.getElementById("visitEmail").value.trim();
-  if (!visitEmail) {
-    alert("Introduce un email para visitar su mapa.");
-    return;
+    imagenURI = cloudData.secure_url;
   }
 
-  const res = await fetch(`${API_URL}/usuarios/${visitEmail}/visitar`, {
+  const formDataBackend = new FormData();
+  formDataBackend.append("establecimiento", establecimiento);
+  formDataBackend.append("direccion", direccion);
+  formDataBackend.append("valoracion", valoracion);
+  if (imagen) formDataBackend.append("imagen", imagen);
+
+  const res = await fetch(`${API_URL}/reseñas`, {
+    method: "POST",
+    body: formDataBackend,
     credentials: "include",
   });
-  const data = await res.json();
 
-  if (data.error) {
-    alert(data.error);
+  const data = await res.json();
+  if (!res.ok) {
+    alert("No se pudo guardar la reseña.");
     return;
   }
 
-  clearMarkers();
-
-  if (data.marcadores && data.marcadores.length > 0) {
-    data.marcadores.forEach(({ ciudad, latitud, longitud, imagenURI }) => {
-      const marker = L.marker([latitud, longitud]).addTo(map);
-      marker.bindPopup(
-        `<b>${ciudad}</b><br>${
-          imagenURI ? `<img src="${imagenURI}" width="100">` : ""
-        }`
-      );
-      currentMarkers.push(marker);
-    });
-
-    const first = data.marcadores[0];
-    map.setView([first.latitud, first.longitud], 8);
-  }
+  alert("Reseña añadida correctamente.");
+  await cargarReseñas();
 });
